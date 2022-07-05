@@ -367,6 +367,273 @@ files:
       };
     }
   learner_created: false
+- name: src/account/config/SecurityConfig.java
+  visible: true
+  text: |
+    package account.config;
+
+    public class SecurityConfig {
+    }
+  learner_created: true
+- name: src/account/converter/UserRegistrationConverter.java
+  visible: true
+  text: |
+    package account.converter;
+
+    import account.domain.User;
+    import account.model.UserRegistrationRequest;
+    import account.model.UserRegistrationResponse;
+    import org.springframework.stereotype.Service;
+
+    @Service
+    public class UserRegistrationConverter {
+
+        public User convert(UserRegistrationRequest request) {
+            var user = new User();
+            user.setName(request.getName());
+            user.setLastname(request.getLastname());
+            user.setPassword(request.getPassword());
+            user.setEmail(request.getEmail());
+            return user;
+        }
+
+        public UserRegistrationResponse convert(User user) {
+            var response = new UserRegistrationResponse();
+            response.setName(user.getName());
+            response.setLastname(user.getLastname());
+            response.setEmail(user.getEmail());
+            return response;
+        }
+    }
+  learner_created: true
+- name: src/account/validator/UniqueEmail.java
+  visible: true
+  text: |
+    package account.validator;
+
+    import javax.validation.Constraint;
+    import javax.validation.Payload;
+    import java.lang.annotation.ElementType;
+    import java.lang.annotation.Retention;
+    import java.lang.annotation.RetentionPolicy;
+    import java.lang.annotation.Target;
+
+    @Target(value = ElementType.FIELD)
+    @Constraint(validatedBy = UniqueEmailValidator.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface UniqueEmail {
+        String message() default "Email already exists";
+        Class<?>[] groups() default {};
+        Class<? extends Payload>[] payload() default {};
+    }
+  learner_created: true
+- name: src/account/model/UserRegistrationRequest.java
+  visible: true
+  text: |
+    package account.model;
+
+    import account.validator.UniqueEmail;
+    import lombok.Data;
+
+    import javax.validation.constraints.Email;
+    import javax.validation.constraints.NotBlank;
+
+    @Data
+    public class UserRegistrationRequest {
+        @NotBlank
+        private String name;
+        @NotBlank
+        private String lastname;
+        @Email(regexp = ".+@acme.com")
+        //@UniqueEmail
+        private String email;
+        @NotBlank
+        private String password;
+    }
+  learner_created: true
+- name: src/account/repository/UserRepository.java
+  visible: true
+  text: |
+    package account.repository;
+
+    import account.domain.User;
+    import org.springframework.data.jpa.repository.JpaRepository;
+    import org.springframework.stereotype.Repository;
+
+    import java.util.Optional;
+
+    @Repository
+    public interface UserRepository extends JpaRepository<User, Long> {
+        Optional<User> findByEmail(String email);
+    }
+  learner_created: true
+- name: src/account/validator/UniqueEmailValidator.java
+  visible: true
+  text: |
+    package account.validator;
+
+    import account.repository.UserRepository;
+
+    import javax.validation.ConstraintValidator;
+    import javax.validation.ConstraintValidatorContext;
+
+    public class UniqueEmailValidator implements ConstraintValidator<UniqueEmail, String> {
+
+        private final UserRepository userRepository;
+
+        public UniqueEmailValidator(UserRepository userRepository) {
+            this.userRepository = userRepository;
+        }
+
+        @Override
+        public boolean isValid(String email, ConstraintValidatorContext context) {
+            return userRepository.findByEmail(email).isEmpty();
+        }
+    }
+  learner_created: true
+- name: src/account/domain/User.java
+  visible: true
+  text: |
+    package account.domain;
+
+    import lombok.Getter;
+    import lombok.RequiredArgsConstructor;
+    import lombok.Setter;
+    import lombok.ToString;
+    import org.hibernate.Hibernate;
+
+    import javax.persistence.Entity;
+    import javax.persistence.GeneratedValue;
+    import javax.persistence.GenerationType;
+    import javax.persistence.Id;
+    import java.util.Objects;
+
+    @Entity
+    @Getter
+    @Setter
+    @ToString
+    @RequiredArgsConstructor
+    public class User {
+        @Id
+        @GeneratedValue(strategy = GenerationType.SEQUENCE)
+        private Long id;
+        private String name;
+        private String lastname;
+        private String email;
+        private String password;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+            User user = (User) o;
+            return id != null && Objects.equals(id, user.id);
+        }
+
+        @Override
+        public int hashCode() {
+            return getClass().hashCode();
+        }
+    }
+  learner_created: true
+- name: src/account/service/UserRegistrationService.java
+  visible: true
+  text: |
+    package account.service;
+
+    import account.converter.UserRegistrationConverter;
+    import account.model.UserRegistrationRequest;
+    import account.model.UserRegistrationResponse;
+    import account.repository.UserRepository;
+    import org.springframework.stereotype.Service;
+
+    @Service
+    public class UserRegistrationService {
+
+        private final UserRepository userRepository;
+        private final UserRegistrationConverter converter;
+
+        public UserRegistrationService(UserRepository userRepository, UserRegistrationConverter converter) {
+            this.userRepository = userRepository;
+            this.converter = converter;
+        }
+
+        public UserRegistrationResponse signup(UserRegistrationRequest request){
+            var user = converter.convert(request);
+            user = userRepository.save(user);
+            return converter.convert(user);
+        }
+    }
+  learner_created: true
+- name: src/account/controller/UserRegistrationController.java
+  visible: true
+  text: |
+    package account.controller;
+
+    import account.model.UserRegistrationRequest;
+    import account.model.UserRegistrationResponse;
+    import account.service.UserRegistrationService;
+    import org.springframework.validation.annotation.Validated;
+    import org.springframework.web.bind.annotation.PostMapping;
+    import org.springframework.web.bind.annotation.RequestBody;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    import javax.validation.Valid;
+
+    @RestController
+    @RequestMapping("/api/auth")
+    @Validated
+    public class UserRegistrationController {
+
+        private final UserRegistrationService userRegistrationService;
+
+        public UserRegistrationController(UserRegistrationService userRegistrationService) {
+            this.userRegistrationService = userRegistrationService;
+        }
+
+        @PostMapping("/signup")
+        public UserRegistrationResponse signup(@RequestBody @Valid UserRegistrationRequest request){
+            System.out.println(request);
+            return userRegistrationService.signup(request);
+        }
+    }
+  learner_created: true
+- name: src/account/model/UserRegistrationResponse.java
+  visible: true
+  text: |
+    package account.model;
+
+    import lombok.Data;
+
+    @Data
+    public class UserRegistrationResponse {
+        private String name;
+        private String lastname;
+        private String email;
+    }
+  learner_created: true
+- name: src/account/exception/GlobalExceptionHandler.java
+  visible: true
+  learner_created: true
+- name: src/account/exception/ErrorDetails.java
+  visible: true
+  learner_created: true
+- name: src/account/service/UserDetailsImpl.java
+  visible: true
+  learner_created: true
+- name: src/account/service/UserDetailsServiceImpl.java
+  visible: true
+  learner_created: true
+- name: src/account/controller/EmployeeController.java
+  visible: true
+  learner_created: true
+- name: src/account/service/EmployeeService.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/projects/217/stages/1087/implement#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Congratulations!
+  time: Tue, 05 Jul 2022 13:26:11 UTC
 record: -1

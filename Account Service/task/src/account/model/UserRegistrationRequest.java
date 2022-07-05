@@ -8,13 +8,13 @@ import javax.validation.constraints.NotBlank;
 
 @Data
 public class UserRegistrationRequest {
-    @NotBlank
+    @NotBlank(message = "Name must not be blank")
     private String name;
-    @NotBlank
+    @NotBlank(message = "Lastname must not be blank")
     private String lastname;
     @Email(regexp = ".+@acme.com")
-    //@UniqueEmail
+    @UniqueEmail(message = "User exist!")
     private String email;
-    @NotBlank
+    @NotBlank(message = "Password must not be blank")
     private String password;
 }
