@@ -1,7 +1,10 @@
 package account.controller;
 
+import account.model.ChangePasswordRequest;
+import account.model.ChangePasswordResponse;
 import account.model.UserRegistrationRequest;
 import account.model.UserRegistrationResponse;
+import account.service.ChangePasswordService;
 import account.service.UserRegistrationService;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,14 +20,20 @@ import javax.validation.Valid;
 public class UserRegistrationController {
 
     private final UserRegistrationService userRegistrationService;
+    private final ChangePasswordService changePasswordService;
 
-    public UserRegistrationController(UserRegistrationService userRegistrationService) {
+    public UserRegistrationController(UserRegistrationService userRegistrationService, ChangePasswordService changePasswordService) {
         this.userRegistrationService = userRegistrationService;
+        this.changePasswordService = changePasswordService;
     }
 
     @PostMapping("/signup")
-    public UserRegistrationResponse signup(@RequestBody @Valid UserRegistrationRequest request){
-        System.out.println(request);
+    public UserRegistrationResponse signup(@RequestBody @Valid UserRegistrationRequest request) {
         return userRegistrationService.signup(request);
+    }
+
+    @PostMapping("/changepass")
+    public ChangePasswordResponse changePassword(@RequestBody @Valid ChangePasswordRequest request) {
+        return changePasswordService.changePassword(request);
     }
 }

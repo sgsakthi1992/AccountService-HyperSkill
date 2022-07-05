@@ -29,8 +29,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
        http.authorizeRequests()
-                .mvcMatchers("/api/empl/** ").authenticated()
-                .mvcMatchers("/ api/auth/**").permitAll()
+                .mvcMatchers("/api/empl/**").authenticated()
+                .mvcMatchers("/api/auth/changepass").authenticated()
+                .mvcMatchers("/api/auth/signup").permitAll()
                 .and()
                 .csrf().disable()
                 .httpBasic();

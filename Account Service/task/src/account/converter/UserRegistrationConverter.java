@@ -20,7 +20,7 @@ public class UserRegistrationConverter {
         user.setName(request.getName());
         user.setLastname(request.getLastname());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setEmail(request.getEmail());
+        user.setEmail(request.getEmail().toLowerCase());
         return user;
     }
 
