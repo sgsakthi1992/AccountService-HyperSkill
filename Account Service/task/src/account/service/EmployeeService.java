@@ -1,24 +1,76 @@
 package account.service;
 
 import account.converter.UserRegistrationConverter;
-import account.model.UserRegistrationResponse;
-import account.repository.UserRepository;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import account.domain.Employee;
+import account.domain.User;
+import account.exception.PeriodNotFoundException;
+import account.model.EmployeePaymentResponse;
+import account.model.PaymentRequest;
+import account.repository.EmployeeRepository;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+
+import java.time.Month;
+import java.time.format.TextStyle;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 @Service
 public class EmployeeService {
-    private final UserRepository userRepository;
+    private final EmployeeRepository employeeRepository;
     private final UserRegistrationConverter converter;
 
-    public EmployeeService(UserRepository userRepository, UserRegistrationConverter converter) {
-        this.userRepository = userRepository;
+    public EmployeeService(EmployeeRepository employeeRepository, UserRegistrationConverter converter) {
+        this.employeeRepository = employeeRepository;
         this.converter = converter;
     }
 
-    public UserRegistrationResponse getPayment(String email) {
-        var user = userRepository.findByEmailAllIgnoreCase(email)
-                .orElseThrow(() -> new UsernameNotFoundException(email + " not found"));
-        return converter.convert(user);
+    public EmployeePaymentResponse getPayment(String period) {
+        var user = getUserDetails().getUser();
+        var employee = employeeRepository.findEmployeeByUserAndPeriod(user, period)
+                .orElse(null);
+        return createEmployeePaymentResponse(user, employee);
+    }
+
+    public List<EmployeePaymentResponse> getPayments() {
+        var user = getUserDetails().getUser();
+        var employees = employeeRepository.findEmployeeByUser(user)
+                .orElse(List.of());
+        return createEmployeePaymentResponseList(user, employees);
+    }
+
+    private UserDetailsImpl getUserDetails() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return (UserDetailsImpl) auth.getPrincipal();
+    }
+
+    private List<EmployeePaymentResponse> createEmployeePaymentResponseList(User user, List<Employee> employees) {
+        return employees.stream()
+                .sorted(Comparator.comparing(Employee::getPeriod).reversed())
+                .map(employee -> createEmployeePaymentResponse(user, employee))
+                .collect(Collectors.toList());
+    }
+
+    private EmployeePaymentResponse createEmployeePaymentResponse(User user, Employee employee) {
+        var response = new EmployeePaymentResponse();
+        if (employee != null) {
+            response.setName(user.getName());
+            response.setLastname(user.getLastname());
+            response.setPeriod(updateMonth(employee.getPeriod()));
+            response.setSalary(convertSalary(employee.getSalary()));
+        }
+        return response;
+    }
+
+    private String updateMonth(String period) {
+        var monthAndYear = period.split("-");
+        var month = Month.of(Integer.parseInt(monthAndYear[0])).getDisplayName(TextStyle.FULL_STANDALONE, Locale.US);
+        return month + "-" + monthAndYear[1];
+    }
+
+    private String convertSalary(Long salary) {
+        return (salary / 100) + " dollar(s) " + (salary % 100) + " cent(s)";
     }
 }
