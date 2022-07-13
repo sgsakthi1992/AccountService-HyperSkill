@@ -1,9 +1,8 @@
 package account.service;
 
-import account.domain.Employee;
 import account.exception.PeriodNotFoundException;
 import account.model.PaymentRequest;
-import account.model.PaymentResponse;
+import account.model.StatusResponse;
 import account.repository.EmployeeRepository;
 import account.repository.UserRepository;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -25,12 +24,12 @@ public class AccountantService {
     }
 
     @Transactional
-    public PaymentResponse createPayments(@Valid List<PaymentRequest> request) {
+    public StatusResponse createPayments(@Valid List<PaymentRequest> request) {
         request.forEach(this::createEmployee);
         return createPaymentResponse("Added successfully!");
     }
 
-    public PaymentResponse updatePayment(PaymentRequest paymentRequest) {
+    public StatusResponse updatePayment(PaymentRequest paymentRequest) {
         var user = userRepository.findByEmailAllIgnoreCase(paymentRequest.getEmployee())
                 .orElseThrow(() -> new UsernameNotFoundException(paymentRequest.getEmployee() + " not found"));
         var employee = employeeRepository.findEmployeeByUserAndPeriod(user, paymentRequest.getPeriod())
@@ -46,7 +45,9 @@ public class AccountantService {
         employeeRepository.insertEmployee(user.getId(), paymentRequest.getSalary(), paymentRequest.getPeriod());
     }
 
-    private PaymentResponse createPaymentResponse(String status) {
-        return new PaymentResponse(status);
+    private StatusResponse createPaymentResponse(String status) {
+        return StatusResponse.builder()
+                .withStatus(status)
+                .build();
     }
 }

@@ -930,6 +930,1076 @@ files:
 
     }
   learner_created: false
+- name: src/account/exception/ErrorDetails.java
+  visible: true
+  text: |
+    package account.exception;
+
+    import lombok.Data;
+
+    import java.time.LocalDateTime;
+
+    @Data
+    public final class ErrorDetails {
+        private final LocalDateTime timestamp;
+        private final int status;
+        private final String error;
+        private final String message;
+        private final String path;
+    }
+  learner_created: true
+- name: src/account/model/ChangePasswordResponse.java
+  visible: true
+  text: |
+    package account.model;
+
+    import lombok.Data;
+
+    @Data
+    public class ChangePasswordResponse {
+        private String email;
+        private String status;
+    }
+  learner_created: true
+- name: src/account/config/SecurityConfig.java
+  visible: true
+  text: |
+    package account.config;
+
+    import org.springframework.context.annotation.Bean;
+    import org.springframework.context.annotation.Configuration;
+    import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+    import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+    import org.springframework.security.config.annotation.web.builders.WebSecurity;
+    import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+    import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+    import org.springframework.security.core.userdetails.UserDetailsService;
+    import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+    import org.springframework.security.crypto.password.PasswordEncoder;
+
+    @EnableWebSecurity
+    @Configuration
+    public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+        private final UserDetailsService userDetailsService;
+
+        public SecurityConfig(UserDetailsService userDetailsService) {
+            this.userDetailsService = userDetailsService;
+        }
+
+        @Override
+        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+            auth.userDetailsService(userDetailsService)
+                    .passwordEncoder(getEncoder());
+        }
+
+        @Override
+        protected void configure(HttpSecurity http) throws Exception {
+            http.authorizeRequests()
+                    .mvcMatchers("/api/empl/**").authenticated()
+                    .mvcMatchers("/api/auth/changepass").authenticated()
+                    .mvcMatchers("/api/auth/signup").permitAll()
+                    .mvcMatchers("/api/acct/payments").permitAll()
+                    .and()
+                    .csrf().disable()
+                    .httpBasic();
+        }
+
+        @Override
+        public void configure(WebSecurity web) throws Exception {
+            web.ignoring()
+                    .antMatchers("/h2-console/**");
+        }
+
+        @Bean
+        public PasswordEncoder getEncoder() {
+            return new BCryptPasswordEncoder();
+        }
+    }
+  learner_created: true
+- name: src/account/controller/AccountantController.java
+  visible: true
+  text: |
+    package account.controller;
+
+    import account.model.PaymentRequest;
+    import account.model.PaymentResponse;
+    import account.service.AccountantService;
+    import org.springframework.validation.annotation.Validated;
+    import org.springframework.web.bind.annotation.PostMapping;
+    import org.springframework.web.bind.annotation.PutMapping;
+    import org.springframework.web.bind.annotation.RequestBody;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    import javax.validation.Valid;
+    import java.util.List;
+
+    @RestController
+    @RequestMapping("/api/acct/payments")
+    @Validated
+    public class AccountantController {
+
+        private final AccountantService accountantService;
+
+        public AccountantController(AccountantService accountantService) {
+            this.accountantService = accountantService;
+        }
+
+        @PostMapping
+        public PaymentResponse createPayments(@Valid @RequestBody List<PaymentRequest> request) {
+            return accountantService.createPayments(request);
+        }
+
+        @PutMapping
+        public PaymentResponse updatePayment(@Valid @RequestBody PaymentRequest request) {
+            return accountantService.updatePayment(request);
+        }
+    }
+  learner_created: true
+- name: src/account/service/UserDetailsServiceImpl.java
+  visible: true
+  text: |
+    package account.service;
+
+    import account.repository.UserRepository;
+    import org.springframework.security.core.userdetails.UserDetails;
+    import org.springframework.security.core.userdetails.UserDetailsService;
+    import org.springframework.security.core.userdetails.UsernameNotFoundException;
+    import org.springframework.stereotype.Service;
+
+    @Service
+    public class UserDetailsServiceImpl implements UserDetailsService {
+
+        private final UserRepository userRepository;
+
+        public UserDetailsServiceImpl(UserRepository userRepository) {
+            this.userRepository = userRepository;
+        }
+
+        @Override
+        public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+            var user = userRepository.findByEmailAllIgnoreCase(username)
+                    .orElseThrow(() -> new UsernameNotFoundException(username + " not found"));
+            return new UserDetailsImpl(user);
+        }
+    }
+  learner_created: true
+- name: src/account/domain/Employee.java
+  visible: true
+  text: |
+    package account.domain;
+
+    import lombok.Getter;
+    import lombok.RequiredArgsConstructor;
+    import lombok.Setter;
+    import lombok.ToString;
+    import org.hibernate.Hibernate;
+
+    import javax.persistence.Entity;
+    import javax.persistence.FetchType;
+    import javax.persistence.Id;
+    import javax.persistence.IdClass;
+    import javax.persistence.ManyToOne;
+    import java.util.Objects;
+
+    @Entity
+    @IdClass(EmployeeId.class)
+    @Getter
+    @Setter
+    @ToString
+    @RequiredArgsConstructor
+    public class Employee {
+        @Id
+        @ManyToOne(fetch = FetchType.LAZY)
+        @ToString.Exclude
+        private User user;
+        @Id
+        private String period;
+        private Long salary;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+            Employee employee = (Employee) o;
+            return user != null && Objects.equals(user, employee.user)
+                    && period != null && Objects.equals(period, employee.period);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(user, period);
+        }
+    }
+  learner_created: true
+- name: src/account/model/PaymentRequest.java
+  visible: true
+  text: |
+    package account.model;
+
+    import lombok.Data;
+
+    import javax.validation.constraints.Min;
+    import javax.validation.constraints.Pattern;
+
+    @Data
+    public class PaymentRequest {
+        private String employee;
+        @Pattern(regexp = "(0\\d|1[0-2])-\\d{4}", message = "Wrong date!")
+        private String period;
+        @Min(value = 0, message = "Salary must be non negative!")
+        private Long salary;
+    }
+  learner_created: true
+- name: src/account/domain/User.java
+  visible: true
+  text: |
+    package account.domain;
+
+    import lombok.Getter;
+    import lombok.RequiredArgsConstructor;
+    import lombok.Setter;
+    import lombok.ToString;
+    import org.hibernate.Hibernate;
+
+    import javax.persistence.Column;
+    import javax.persistence.Entity;
+    import javax.persistence.GeneratedValue;
+    import javax.persistence.GenerationType;
+    import javax.persistence.Id;
+    import java.util.Objects;
+
+    @Entity
+    @Getter
+    @Setter
+    @ToString
+    @RequiredArgsConstructor
+    public class User {
+        @Id
+        @GeneratedValue(strategy = GenerationType.SEQUENCE)
+        private Long id;
+        private String name;
+        private String lastname;
+        @Column(unique = true)
+        private String email;
+        private String password;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+            User user = (User) o;
+            return id != null && Objects.equals(id, user.id);
+        }
+
+        @Override
+        public int hashCode() {
+            return getClass().hashCode();
+        }
+    }
+  learner_created: true
+- name: src/account/service/UserDetailsImpl.java
+  visible: true
+  text: |
+    package account.service;
+
+    import account.domain.User;
+    import lombok.Getter;
+    import lombok.ToString;
+    import org.springframework.security.core.GrantedAuthority;
+    import org.springframework.security.core.userdetails.UserDetails;
+
+    import java.util.Collection;
+
+    @Getter
+    @ToString
+    public class UserDetailsImpl implements UserDetails {
+
+        private final String username;
+        private final String password;
+        private final User user;
+
+        public UserDetailsImpl(User user) {
+            this.user = user;
+            this.username = user.getEmail();
+            this.password = user.getPassword();
+        }
+
+        @Override
+        public Collection<? extends GrantedAuthority> getAuthorities() {
+            return null;
+        }
+
+        @Override
+        public String getPassword() {
+            return password;
+        }
+
+        @Override
+        public String getUsername() {
+            return username;
+        }
+
+        @Override
+        public boolean isAccountNonExpired() {
+            return true;
+        }
+
+        @Override
+        public boolean isAccountNonLocked() {
+            return true;
+        }
+
+        @Override
+        public boolean isCredentialsNonExpired() {
+            return true;
+        }
+
+        @Override
+        public boolean isEnabled() {
+            return true;
+        }
+    }
+  learner_created: true
+- name: src/account/model/ChangePasswordRequest.java
+  visible: true
+  text: |
+    package account.model;
+
+    import account.validator.BreachPassword;
+    import lombok.Data;
+    import lombok.ToString;
+    import org.hibernate.validator.constraints.Length;
+
+    import javax.validation.constraints.NotBlank;
+
+    @Data
+    @ToString
+    public class ChangePasswordRequest {
+        @NotBlank(message = "Password must not be blank")
+        @Length(min = 12, message = "Password length must be 12 chars minimum!")
+        @BreachPassword
+        private String new_password;
+    }
+  learner_created: true
+- name: src/account/service/EmployeeService.java
+  visible: true
+  text: |
+    package account.service;
+
+    import account.converter.UserRegistrationConverter;
+    import account.domain.Employee;
+    import account.domain.User;
+    import account.exception.PeriodNotFoundException;
+    import account.model.EmployeePaymentResponse;
+    import account.model.PaymentRequest;
+    import account.repository.EmployeeRepository;
+    import org.springframework.security.core.context.SecurityContextHolder;
+    import org.springframework.stereotype.Service;
+
+    import java.time.Month;
+    import java.time.format.TextStyle;
+    import java.util.Comparator;
+    import java.util.List;
+    import java.util.Locale;
+    import java.util.stream.Collectors;
+
+    @Service
+    public class EmployeeService {
+        private final EmployeeRepository employeeRepository;
+        private final UserRegistrationConverter converter;
+
+        public EmployeeService(EmployeeRepository employeeRepository, UserRegistrationConverter converter) {
+            this.employeeRepository = employeeRepository;
+            this.converter = converter;
+        }
+
+        public EmployeePaymentResponse getPayment(String period) {
+            var user = getUserDetails().getUser();
+            var employee = employeeRepository.findEmployeeByUserAndPeriod(user, period)
+                    .orElse(null);
+            return createEmployeePaymentResponse(user, employee);
+        }
+
+        public List<EmployeePaymentResponse> getPayments() {
+            var user = getUserDetails().getUser();
+            var employees = employeeRepository.findEmployeeByUser(user)
+                    .orElse(List.of());
+            return createEmployeePaymentResponseList(user, employees);
+        }
+
+        private UserDetailsImpl getUserDetails() {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            return (UserDetailsImpl) auth.getPrincipal();
+        }
+
+        private List<EmployeePaymentResponse> createEmployeePaymentResponseList(User user, List<Employee> employees) {
+            return employees.stream()
+                    .sorted(Comparator.comparing(Employee::getPeriod).reversed())
+                    .map(employee -> createEmployeePaymentResponse(user, employee))
+                    .collect(Collectors.toList());
+        }
+
+        private EmployeePaymentResponse createEmployeePaymentResponse(User user, Employee employee) {
+            var response = new EmployeePaymentResponse();
+            if (employee != null) {
+                response.setName(user.getName());
+                response.setLastname(user.getLastname());
+                response.setPeriod(updateMonth(employee.getPeriod()));
+                response.setSalary(convertSalary(employee.getSalary()));
+            }
+            return response;
+        }
+
+        private String updateMonth(String period) {
+            var monthAndYear = period.split("-");
+            var month = Month.of(Integer.parseInt(monthAndYear[0])).getDisplayName(TextStyle.FULL_STANDALONE, Locale.US);
+            return month + "-" + monthAndYear[1];
+        }
+
+        private String convertSalary(Long salary) {
+            return (salary / 100) + " dollar(s) " + (salary % 100) + " cent(s)";
+        }
+    }
+  learner_created: true
+- name: src/account/exception/GlobalExceptionHandler.java
+  visible: true
+  text: |
+    package account.exception;
+
+    import org.springframework.context.support.DefaultMessageSourceResolvable;
+    import org.springframework.http.HttpStatus;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.web.bind.MethodArgumentNotValidException;
+    import org.springframework.web.bind.annotation.ControllerAdvice;
+    import org.springframework.web.bind.annotation.ExceptionHandler;
+    import org.springframework.web.context.request.WebRequest;
+
+    import javax.validation.ConstraintViolation;
+    import javax.validation.ConstraintViolationException;
+    import java.time.LocalDateTime;
+    import java.util.stream.Collectors;
+
+    @ControllerAdvice
+    public class GlobalExceptionHandler {
+
+        @ExceptionHandler(MethodArgumentNotValidException.class)
+        public final ResponseEntity<ErrorDetails> methodArgumentNotValidException(
+                MethodArgumentNotValidException exception,
+                WebRequest webRequest) {
+
+            var errorDetails = new ErrorDetails(
+                    LocalDateTime.now(),
+                    HttpStatus.BAD_REQUEST.value(),
+                    HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                    getMessages(exception),
+                    getPath(webRequest));
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDetails);
+        }
+
+        @ExceptionHandler(ConstraintViolationException.class)
+        public final ResponseEntity<ErrorDetails> constraintViolationException(
+                ConstraintViolationException exception,
+                WebRequest webRequest) {
+
+            var errorDetails = new ErrorDetails(
+                    LocalDateTime.now(),
+                    HttpStatus.BAD_REQUEST.value(),
+                    HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                    getMessages(exception),
+                    getPath(webRequest));
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDetails);
+        }
+        @ExceptionHandler(org.hibernate.exception.ConstraintViolationException.class)
+        public final ResponseEntity<ErrorDetails> constraintViolationException(
+                org.hibernate.exception.ConstraintViolationException exception,
+                WebRequest webRequest) {
+
+            var errorDetails = new ErrorDetails(
+                    LocalDateTime.now(),
+                    HttpStatus.BAD_REQUEST.value(),
+                    HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                    "Error!",
+                    getPath(webRequest));
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorDetails);
+        }
+
+        private String getPath(WebRequest webRequest) {
+            return webRequest.getDescription(false).replace("uri=", "");
+        }
+
+        private String getMessages(MethodArgumentNotValidException exception) {
+            return exception.getBindingResult().getFieldErrors().stream()
+                    .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                    .collect(Collectors.joining(", "));
+        }
+
+        private String getMessages(ConstraintViolationException exception) {
+            return exception.getConstraintViolations().stream()
+                    .map(ConstraintViolation::getMessage)
+                    .collect(Collectors.joining(", "));
+        }
+    }
+  learner_created: true
+- name: src/account/exception/PasswordSameException.java
+  visible: true
+  text: |
+    package account.exception;
+
+    import org.springframework.http.HttpStatus;
+    import org.springframework.web.bind.annotation.ResponseStatus;
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public class PasswordSameException extends RuntimeException {
+        public PasswordSameException(String message) {
+            super(message);
+        }
+    }
+  learner_created: true
+- name: src/account/validator/BreachPassword.java
+  visible: true
+  text: |
+    package account.validator;
+
+    import javax.validation.Constraint;
+    import javax.validation.Payload;
+    import java.lang.annotation.ElementType;
+    import java.lang.annotation.Retention;
+    import java.lang.annotation.RetentionPolicy;
+    import java.lang.annotation.Target;
+
+    @Target(value = ElementType.FIELD)
+    @Constraint(validatedBy = BreachPasswordValidator.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface BreachPassword {
+        String message() default "The password is in the hacker's database!";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+  learner_created: true
+- name: src/account/service/AccountantService.java
+  visible: true
+  text: |
+    package account.service;
+
+    import account.domain.Employee;
+    import account.exception.PeriodNotFoundException;
+    import account.model.PaymentRequest;
+    import account.model.PaymentResponse;
+    import account.repository.EmployeeRepository;
+    import account.repository.UserRepository;
+    import org.springframework.security.core.userdetails.UsernameNotFoundException;
+    import org.springframework.stereotype.Service;
+    import org.springframework.transaction.annotation.Transactional;
+
+    import javax.validation.Valid;
+    import java.util.List;
+
+    @Service
+    public class AccountantService {
+
+        private final EmployeeRepository employeeRepository;
+        private final UserRepository userRepository;
+
+        public AccountantService(EmployeeRepository employeeRepository, UserRepository userRepository) {
+            this.employeeRepository = employeeRepository;
+            this.userRepository = userRepository;
+        }
+
+        @Transactional
+        public PaymentResponse createPayments(@Valid List<PaymentRequest> request) {
+            request.forEach(this::createEmployee);
+            return createPaymentResponse("Added successfully!");
+        }
+
+        public PaymentResponse updatePayment(PaymentRequest paymentRequest) {
+            var user = userRepository.findByEmailAllIgnoreCase(paymentRequest.getEmployee())
+                    .orElseThrow(() -> new UsernameNotFoundException(paymentRequest.getEmployee() + " not found"));
+            var employee = employeeRepository.findEmployeeByUserAndPeriod(user, paymentRequest.getPeriod())
+                    .orElseThrow(() -> new PeriodNotFoundException(paymentRequest.getEmployee() + " for the period " + paymentRequest.getPeriod() + " not found"));
+            employee.setSalary(paymentRequest.getSalary());
+            employeeRepository.save(employee);
+            return createPaymentResponse("Updated successfully!");
+        }
+
+        private void createEmployee(PaymentRequest paymentRequest) {
+            var user = userRepository.findByEmailAllIgnoreCase(paymentRequest.getEmployee())
+                    .orElseThrow(() -> new UsernameNotFoundException(paymentRequest.getEmployee() + " not found"));
+            employeeRepository.insertEmployee(user.getId(), paymentRequest.getSalary(), paymentRequest.getPeriod());
+        }
+
+        private PaymentResponse createPaymentResponse(String status) {
+            return new PaymentResponse(status);
+        }
+    }
+  learner_created: true
+- name: src/account/validator/UniqueEmail.java
+  visible: true
+  text: |
+    package account.validator;
+
+    import javax.validation.Constraint;
+    import javax.validation.Payload;
+    import java.lang.annotation.ElementType;
+    import java.lang.annotation.Retention;
+    import java.lang.annotation.RetentionPolicy;
+    import java.lang.annotation.Target;
+
+    @Target(value = ElementType.FIELD)
+    @Constraint(validatedBy = UniqueEmailValidator.class)
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface UniqueEmail {
+        String message() default "Email already exists";
+        Class<?>[] groups() default {};
+        Class<? extends Payload>[] payload() default {};
+    }
+  learner_created: true
+- name: src/account/service/ChangePasswordService.java
+  visible: true
+  text: |
+    package account.service;
+
+    import account.exception.PasswordSameException;
+    import account.model.ChangePasswordRequest;
+    import account.model.ChangePasswordResponse;
+    import account.repository.UserRepository;
+    import org.springframework.security.core.context.SecurityContextHolder;
+    import org.springframework.security.core.userdetails.UsernameNotFoundException;
+    import org.springframework.security.crypto.password.PasswordEncoder;
+    import org.springframework.stereotype.Service;
+
+    @Service
+    public class ChangePasswordService {
+
+        private final UserRepository userRepository;
+        private final PasswordEncoder encoder;
+
+        public ChangePasswordService(UserRepository userRepository, PasswordEncoder encoder) {
+            this.userRepository = userRepository;
+            this.encoder = encoder;
+        }
+
+        public ChangePasswordResponse changePassword(ChangePasswordRequest request) {
+            var email = getUserDetails().getUsername();
+            var user = userRepository.findByEmailAllIgnoreCase(email)
+                    .orElseThrow(() -> new UsernameNotFoundException(email + " not found"));
+            if (isPasswordSame(user.getPassword(), request.getNew_password())) {
+                throw new PasswordSameException("The passwords must be different!");
+            }
+            user.setPassword(encoder.encode(request.getNew_password()));
+            userRepository.save(user);
+            return createChangePasswordResponse(user.getEmail());
+        }
+
+        private UserDetailsImpl getUserDetails() {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            return (UserDetailsImpl) auth.getPrincipal();
+        }
+
+        private Boolean isPasswordSame(String oldPassword, String newPassword) {
+            return encoder.matches(newPassword, oldPassword);
+        }
+
+        private ChangePasswordResponse createChangePasswordResponse(String email) {
+            var response = new ChangePasswordResponse();
+            response.setEmail(email);
+            response.setStatus("The password has been updated successfully");
+            return response;
+        }
+    }
+  learner_created: true
+- name: src/account/repository/UserRepository.java
+  visible: true
+  text: |
+    package account.repository;
+
+    import account.domain.User;
+    import org.springframework.data.jpa.repository.JpaRepository;
+    import org.springframework.stereotype.Repository;
+
+    import java.util.Optional;
+
+    @Repository
+    public interface UserRepository extends JpaRepository<User, Long> {
+        Optional<User> findByEmailAllIgnoreCase(String email);
+    }
+  learner_created: true
+- name: src/account/validator/UniqueEmailValidator.java
+  visible: true
+  text: |
+    package account.validator;
+
+    import account.repository.UserRepository;
+
+    import javax.validation.ConstraintValidator;
+    import javax.validation.ConstraintValidatorContext;
+
+    public class UniqueEmailValidator implements ConstraintValidator<UniqueEmail, String> {
+
+        private final UserRepository userRepository;
+
+        public UniqueEmailValidator(UserRepository userRepository) {
+            this.userRepository = userRepository;
+        }
+
+        @Override
+        public boolean isValid(String email, ConstraintValidatorContext context) {
+            return userRepository.findByEmailAllIgnoreCase(email).isEmpty();
+        }
+    }
+  learner_created: true
+- name: src/account/domain/EmployeeId.java
+  visible: true
+  text: |
+    package account.domain;
+
+    import org.hibernate.Hibernate;
+
+    import java.io.Serializable;
+    import java.util.Objects;
+
+    public class EmployeeId implements Serializable {
+        private Long user;
+        private String period;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+            EmployeeId that = (EmployeeId) o;
+            return user != null && Objects.equals(user, that.user)
+                    && period != null && Objects.equals(period, that.period);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(user, period);
+        }
+    }
+  learner_created: true
+- name: src/account/service/UserRegistrationService.java
+  visible: true
+  text: |
+    package account.service;
+
+    import account.converter.UserRegistrationConverter;
+    import account.model.UserRegistrationRequest;
+    import account.model.UserRegistrationResponse;
+    import account.repository.UserRepository;
+    import org.springframework.stereotype.Service;
+
+    @Service
+    public class UserRegistrationService {
+
+        private final UserRepository userRepository;
+        private final UserRegistrationConverter converter;
+
+        public UserRegistrationService(UserRepository userRepository, UserRegistrationConverter converter) {
+            this.userRepository = userRepository;
+            this.converter = converter;
+        }
+
+        public UserRegistrationResponse signup(UserRegistrationRequest request){
+            var user = converter.convert(request);
+            user = userRepository.save(user);
+            return converter.convert(user);
+        }
+    }
+  learner_created: true
+- name: src/account/validator/BreachPasswordValidator.java
+  visible: true
+  text: |
+    package account.validator;
+
+    import javax.validation.ConstraintValidator;
+    import javax.validation.ConstraintValidatorContext;
+    import java.util.List;
+
+    public class BreachPasswordValidator implements ConstraintValidator<BreachPassword, String> {
+
+        private static final List<String> BREACHED_PASSWORDS = List.of("PasswordForJanuary", "PasswordForFebruary",
+                "PasswordForMarch", "PasswordForApril", "PasswordForMay", "PasswordForJune", "PasswordForJuly",
+                "PasswordForAugust", "PasswordForSeptember", "PasswordForOctober", "PasswordForNovember", "PasswordForDecember");
+
+        @Override
+        public boolean isValid(String value, ConstraintValidatorContext context) {
+            if (value == null) {
+                return true;
+            }
+            return !BREACHED_PASSWORDS.contains(value);
+        }
+    }
+  learner_created: true
+- name: src/account/model/EmployeePaymentResponse.java
+  visible: true
+  text: |
+    package account.model;
+
+    import lombok.Data;
+
+    @Data
+    public class EmployeePaymentResponse {
+        private String name;
+        private String lastname;
+        private String period;
+        private String salary;
+    }
+  learner_created: true
+- name: src/account/exception/PeriodNotFoundException.java
+  visible: true
+  text: |
+    package account.exception;
+
+    import org.springframework.http.HttpStatus;
+    import org.springframework.web.bind.annotation.ResponseStatus;
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public class PeriodNotFoundException extends RuntimeException {
+        public PeriodNotFoundException(String message) {
+            super(message);
+        }
+    }
+  learner_created: true
+- name: src/account/controller/UserRegistrationController.java
+  visible: true
+  text: |
+    package account.controller;
+
+    import account.model.ChangePasswordRequest;
+    import account.model.ChangePasswordResponse;
+    import account.model.UserRegistrationRequest;
+    import account.model.UserRegistrationResponse;
+    import account.service.ChangePasswordService;
+    import account.service.UserRegistrationService;
+    import org.springframework.validation.annotation.Validated;
+    import org.springframework.web.bind.annotation.PostMapping;
+    import org.springframework.web.bind.annotation.RequestBody;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    import javax.validation.Valid;
+
+    @RestController
+    @RequestMapping("/api/auth")
+    @Validated
+    public class UserRegistrationController {
+
+        private final UserRegistrationService userRegistrationService;
+        private final ChangePasswordService changePasswordService;
+
+        public UserRegistrationController(UserRegistrationService userRegistrationService, ChangePasswordService changePasswordService) {
+            this.userRegistrationService = userRegistrationService;
+            this.changePasswordService = changePasswordService;
+        }
+
+        @PostMapping("/signup")
+        public UserRegistrationResponse signup(@RequestBody @Valid UserRegistrationRequest request) {
+            return userRegistrationService.signup(request);
+        }
+
+        @PostMapping("/changepass")
+        public ChangePasswordResponse changePassword(@RequestBody @Valid ChangePasswordRequest request) {
+            return changePasswordService.changePassword(request);
+        }
+    }
+  learner_created: true
+- name: src/account/repository/EmployeeRepository.java
+  visible: true
+  text: |
+    package account.repository;
+
+    import account.domain.Employee;
+    import account.domain.EmployeeId;
+    import account.domain.User;
+    import org.springframework.data.jpa.repository.JpaRepository;
+    import org.springframework.data.jpa.repository.Modifying;
+    import org.springframework.data.jpa.repository.Query;
+    import org.springframework.data.repository.query.Param;
+    import org.springframework.stereotype.Repository;
+
+    import java.util.List;
+    import java.util.Optional;
+
+    @Repository
+    public interface EmployeeRepository extends JpaRepository<Employee, EmployeeId> {
+
+        Optional<Employee> findEmployeeByUserAndPeriod(User user, String period);
+        Optional<List<Employee>> findEmployeeByUser(User user);
+
+        @Modifying
+        @Query(value = "insert into employee (user_id, salary, period) VALUES (:userId,:salary,:period)", nativeQuery = true)
+        void insertEmployee(@Param("userId") Long userId, @Param("salary") Long salary, @Param("period") String period);
+    }
+  learner_created: true
+- name: src/account/controller/EmployeeController.java
+  visible: true
+  text: |
+    package account.controller;
+
+    import account.service.EmployeeService;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.validation.annotation.Validated;
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RequestParam;
+    import org.springframework.web.bind.annotation.RestController;
+
+    import javax.validation.Valid;
+    import javax.validation.constraints.Pattern;
+
+    @RestController
+    @RequestMapping("api/empl")
+    @Validated
+    public class EmployeeController {
+
+        private final EmployeeService employeeService;
+
+        public EmployeeController(EmployeeService employeeService) {
+            this.employeeService = employeeService;
+        }
+
+        @GetMapping("/payment")
+        public ResponseEntity<?> getPayment(@Valid @Pattern(regexp = "(0\\d|1[0-2])-\\d{4}", message = "Wrong date!") @RequestParam(required = false) String period) {
+            if (period == null) {
+                return ResponseEntity.ok().body(employeeService.getPayments());
+            }
+            return ResponseEntity.ok().body(employeeService.getPayment(period));
+        }
+    }
+  learner_created: true
+- name: src/account/controller/AdminController.java
+  visible: true
+  learner_created: true
+- name: src/account/service/AdminService.java
+  visible: true
+  learner_created: true
+- name: src/account/model/UserRequest.java
+  visible: true
+  text: |
+    package account.model;
+
+    import account.validator.BreachPassword;
+    import account.validator.UniqueEmail;
+    import lombok.Data;
+    import org.hibernate.validator.constraints.Length;
+
+    import javax.validation.constraints.Email;
+    import javax.validation.constraints.NotBlank;
+
+    @Data
+    public class UserRegistrationRequest {
+        @NotBlank(message = "Name must not be blank")
+        private String name;
+        @NotBlank(message = "Lastname must not be blank")
+        private String lastname;
+        @Email(regexp = ".+@acme.com")
+        @UniqueEmail(message = "User exist!")
+        @NotBlank
+        private String email;
+        @NotBlank(message = "Password must not be blank")
+        @Length(min = 12, message = "Password length must be 12 chars minimum!")
+        @BreachPassword
+        private String password;
+    }
+  learner_created: true
+- name: src/account/model/UserResponse.java
+  visible: true
+  text: |
+    package account.model;
+
+    import lombok.Data;
+
+    @Data
+    public class UserRegistrationResponse {
+        private Long id;
+        private String name;
+        private String lastname;
+        private String email;
+    }
+  learner_created: true
+- name: src/account/converter/UserConverter.java
+  visible: true
+  text: |
+    package account.converter;
+
+    import account.domain.User;
+    import account.model.UserRegistrationRequest;
+    import account.model.UserRegistrationResponse;
+    import org.springframework.security.crypto.password.PasswordEncoder;
+    import org.springframework.stereotype.Service;
+
+    @Service
+    public class UserRegistrationConverter {
+
+        private final PasswordEncoder passwordEncoder;
+
+        public UserRegistrationConverter(PasswordEncoder passwordEncoder) {
+            this.passwordEncoder = passwordEncoder;
+        }
+
+        public User convert(UserRegistrationRequest request) {
+            var user = new User();
+            user.setName(request.getName());
+            user.setLastname(request.getLastname());
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+            user.setEmail(request.getEmail().toLowerCase());
+            return user;
+        }
+
+        public UserRegistrationResponse convert(User user) {
+            var response = new UserRegistrationResponse();
+            response.setId(user.getId());
+            response.setName(user.getName());
+            response.setLastname(user.getLastname());
+            response.setEmail(user.getEmail());
+            return response;
+        }
+    }
+  learner_created: true
+- name: src/account/config/MethodSecurityConfig.java
+  visible: true
+  learner_created: true
+- name: src/account/model/StatusResponse.java
+  visible: true
+  text: |
+    package account.model;
+
+    import lombok.AllArgsConstructor;
+    import lombok.Data;
+
+    @Data
+    @AllArgsConstructor
+    public class PaymentResponse {
+        private String status;
+    }
+  learner_created: true
+- name: src/account/exception/NotValidOperationException.java
+  visible: true
+  learner_created: true
+- name: src/account/model/RoleUpdateRequest.java
+  visible: true
+  learner_created: true
+- name: src/account/model/Operation.java
+  visible: true
+  learner_created: true
+- name: src/account/exception/DataNotFoundException.java
+  visible: true
+  learner_created: true
+- name: src/account/config/CustomAuthenticationEntryPoint.java
+  visible: true
+  learner_created: true
+- name: src/account/config/CustomAccessDeniedHandler.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/learn/step/16605#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Congratulations!
+  time: Wed, 13 Jul 2022 14:00:13 UTC
 record: -1

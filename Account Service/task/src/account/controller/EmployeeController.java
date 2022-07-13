@@ -2,6 +2,7 @@ package account.controller;
 
 import account.service.EmployeeService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +14,7 @@ import javax.validation.constraints.Pattern;
 
 @RestController
 @RequestMapping("api/empl")
+@PreAuthorize("hasRole('ROLE_USER') or hasRole('ROLE_ACCOUNTANT')")
 @Validated
 public class EmployeeController {
 

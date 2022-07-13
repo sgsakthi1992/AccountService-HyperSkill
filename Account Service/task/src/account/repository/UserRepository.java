@@ -9,4 +9,7 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmailAllIgnoreCase(String email);
+
+    long deleteByEmailAllIgnoreCase(String email);
+
 }

@@ -1,21 +1,23 @@
 package account.converter;
 
 import account.domain.User;
-import account.model.UserRegistrationRequest;
-import account.model.UserRegistrationResponse;
+import account.model.UserRequest;
+import account.model.UserResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.stream.Collectors;
+
 @Service
-public class UserRegistrationConverter {
+public class UserConverter {
 
     private final PasswordEncoder passwordEncoder;
 
-    public UserRegistrationConverter(PasswordEncoder passwordEncoder) {
+    public UserConverter(PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public User convert(UserRegistrationRequest request) {
+    public User convert(UserRequest request) {
         var user = new User();
         user.setName(request.getName());
         user.setLastname(request.getLastname());
@@ -24,12 +26,13 @@ public class UserRegistrationConverter {
         return user;
     }
 
-    public UserRegistrationResponse convert(User user) {
-        var response = new UserRegistrationResponse();
+    public UserResponse convert(User user) {
+        var response = new UserResponse();
         response.setId(user.getId());
         response.setName(user.getName());
         response.setLastname(user.getLastname());
         response.setEmail(user.getEmail());
+        response.setRoles(user.getRoles().stream().sorted().collect(Collectors.toList()));
         return response;
     }
 }

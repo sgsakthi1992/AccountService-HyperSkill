@@ -16,9 +16,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     private final UserDetailsService userDetailsService;
+    private final CustomAccessDeniedHandler accessDeniedHandler;
+    private final CustomAuthenticationEntryPoint authenticationEntryPoint;
 
-    public SecurityConfig(UserDetailsService userDetailsService) {
+    public SecurityConfig(UserDetailsService userDetailsService, CustomAccessDeniedHandler accessDeniedHandler, CustomAuthenticationEntryPoint authenticationEntryPoint) {
         this.userDetailsService = userDetailsService;
+        this.accessDeniedHandler = accessDeniedHandler;
+        this.authenticationEntryPoint = authenticationEntryPoint;
     }
 
     @Override
@@ -30,12 +34,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
-                .mvcMatchers("/api/empl/**").authenticated()
                 .mvcMatchers("/api/auth/changepass").authenticated()
                 .mvcMatchers("/api/auth/signup").permitAll()
-                .mvcMatchers("/api/acct/payments").permitAll()
                 .and()
                 .csrf().disable()
+                .exceptionHandling().accessDeniedHandler(accessDeniedHandler).authenticationEntryPoint(authenticationEntryPoint)
+                .and()
                 .httpBasic();
     }
 
@@ -49,4 +53,5 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     public PasswordEncoder getEncoder() {
         return new BCryptPasswordEncoder();
     }
+
 }

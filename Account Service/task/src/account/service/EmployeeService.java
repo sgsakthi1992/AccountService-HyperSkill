@@ -1,11 +1,9 @@
 package account.service;
 
-import account.converter.UserRegistrationConverter;
+import account.converter.UserConverter;
 import account.domain.Employee;
 import account.domain.User;
-import account.exception.PeriodNotFoundException;
 import account.model.EmployeePaymentResponse;
-import account.model.PaymentRequest;
 import account.repository.EmployeeRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -20,11 +18,9 @@ import java.util.stream.Collectors;
 @Service
 public class EmployeeService {
     private final EmployeeRepository employeeRepository;
-    private final UserRegistrationConverter converter;
 
-    public EmployeeService(EmployeeRepository employeeRepository, UserRegistrationConverter converter) {
+    public EmployeeService(EmployeeRepository employeeRepository) {
         this.employeeRepository = employeeRepository;
-        this.converter = converter;
     }
 
     public EmployeePaymentResponse getPayment(String period) {

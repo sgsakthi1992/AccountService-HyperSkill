@@ -2,8 +2,8 @@ package account.controller;
 
 import account.model.ChangePasswordRequest;
 import account.model.ChangePasswordResponse;
-import account.model.UserRegistrationRequest;
-import account.model.UserRegistrationResponse;
+import account.model.UserRequest;
+import account.model.UserResponse;
 import account.service.ChangePasswordService;
 import account.service.UserRegistrationService;
 import org.springframework.validation.annotation.Validated;
@@ -28,7 +28,7 @@ public class UserRegistrationController {
     }
 
     @PostMapping("/signup")
-    public UserRegistrationResponse signup(@RequestBody @Valid UserRegistrationRequest request) {
+    public UserResponse signup(@RequestBody @Valid UserRequest request) {
         return userRegistrationService.signup(request);
     }
 

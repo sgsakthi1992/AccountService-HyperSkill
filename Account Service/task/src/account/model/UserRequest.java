@@ -9,7 +9,7 @@ import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 
 @Data
-public class UserRegistrationRequest {
+public class UserRequest {
     @NotBlank(message = "Name must not be blank")
     private String name;
     @NotBlank(message = "Lastname must not be blank")
